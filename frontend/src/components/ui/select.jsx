@@ -18,8 +18,10 @@ const SelectContext = React.createContext({})
 
 const SelectActual = ({ children, value, onValueChange }) => {
     const [open, setOpen] = React.useState(false)
+    const [selectedLabel, setSelectedLabel] = React.useState(null)
+
     return (
-        <SelectContext.Provider value={{ value, onValueChange, open, setOpen }}>
+        <SelectContext.Provider value={{ value, onValueChange, open, setOpen, selectedLabel, setSelectedLabel }}>
             <div className="relative inline-block w-full">{children}</div>
         </SelectContext.Provider>
     )
@@ -60,7 +62,14 @@ const SelectContentActual = ({ className, children, ...props }) => {
 }
 
 const SelectItem = React.forwardRef(({ className, children, value, ...props }, ref) => {
-    const { onValueChange, setOpen } = React.useContext(SelectContext)
+    const { onValueChange, setOpen, value: selectedValue, setSelectedLabel } = React.useContext(SelectContext)
+
+    React.useEffect(() => {
+        if (value === selectedValue) {
+            setSelectedLabel(children)
+        }
+    }, [value, selectedValue, children, setSelectedLabel])
+
     return (
         <div
             ref={ref}
@@ -84,10 +93,13 @@ const SelectItem = React.forwardRef(({ className, children, value, ...props }, r
 })
 
 const SelectValue = React.forwardRef(({ className, placeholder = "Select an option", ...props }, ref) => {
-    const { value } = React.useContext(SelectContext)
+    const { value, selectedLabel } = React.useContext(SelectContext)
+
+    // If we have a selectedLabel (from children of SelectItem), show it.
+    // Fallback to value, or placeholder
     return (
         <span ref={ref} className={cn("truncate", className)} {...props}>
-            {value || placeholder}
+            {selectedLabel || value || placeholder}
         </span>
     )
 })

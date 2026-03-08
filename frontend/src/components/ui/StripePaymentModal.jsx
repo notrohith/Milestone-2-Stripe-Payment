@@ -9,7 +9,7 @@ import {
 import { X, Lock, Loader2, CheckCircle, Car } from 'lucide-react';
 import api from '../../api/axiosClient';
 
-const stripePromise = loadStripe('pk_test_51T7eWgJEKU0ZrkGHUfyqcPrVhYp4saeQNFH5XY6o8ICSp2Rcab1cJrzaD3dTF03NFDxcNDGx1yyqcG7T3WK8WKBG00lrclnVnZ');
+const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
 
 // ── Inner form (needs to be inside <Elements>) ────────────────────────────────
 function CheckoutForm({ amount, onSuccess, rideId, participantId }) {

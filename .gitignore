@@ -3,3 +3,4 @@ github_secrets/
 frontend/.env
 node_modules/
 target/
+logs/
