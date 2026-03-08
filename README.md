@@ -155,16 +155,4 @@ npm test
 - Realtime transport is configured with SockJS endpoint `/ws` and broker topic prefix `/topic`.
 - If you rotate credentials, update local secret files instead of hardcoding values.
 
-## Screenshots
 
-Add screenshots under `docs/images/` and update this section:
-
-```md
-![Landing](docs/images/landing.png)
-![My Rides](docs/images/my-rides.png)
-![Driver Dashboard](docs/images/driver-dashboard.png)
-```
-
-## License
-
-No license file found in repo. Add a `LICENSE` file before public distribution.
