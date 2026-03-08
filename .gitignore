@@ -1,0 +1,5 @@
+github_secrets/
+.env
+frontend/.env
+node_modules/
+target/

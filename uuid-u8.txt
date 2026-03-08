@@ -1,0 +1,36 @@
+﻿=== Supabase Auth Users ===
+  Auth UUID: c2c79e4a-9144-4c8b-a642-e59fe843cd61  Email: johndoe@gmail.com  Role: DRIVER
+  Auth UUID: d082098d-bb7c-4bd4-965b-9389d71c3847  Email: rider@gmail.com  Role: RIDER
+  Auth UUID: 851584c9-498b-4ce8-b4a3-f45a299e4650  Email: lol@gmail.com  Role: DRIVER
+  Auth UUID: 426af385-ae6b-4c1b-88e5-97fc9d03527c  Email: rohith@corideadmin.com  Role: none
+  Auth UUID: ec0257a7-bbc6-4a65-9d6b-a375bd22a729  Email: srohith2007@gmail.com  Role: none
+  Auth UUID: 7c60db8d-0485-4545-9d27-a3e8dbff73fb  Email: 123srohith123@gmail.com  Role: none
+
+=== Backend users table ===
+  DB UUID:   16408dfe-bb7c-4fb0-8569-a8b2538ff0ba  Email: janedoetest123@gmail.com  Role: RIDER  Status: APPROVED
+  DB UUID:   5950e51c-f32a-4d0c-a95b-2e2549cfe8f6  Email: menaloninsight@gmail.com  Role: RIDER  Status: APPROVED
+  DB UUID:   7af8837e-6344-4f32-9cc5-d60fe3dd8b07  Email: lol@gmail.com  Role: DRIVER  Status: APPROVED
+  DB UUID:   8ef30a4f-b521-45c7-9b51-9aa20f71ebb0  Email: srohith2007@gmail.com  Role: RIDER  Status: APPROVED
+  DB UUID:   ec0257a7-bbc6-4a65-9d6b-a375bd22a729  Email: srohith2007@gmail.com  Role: RIDER  Status: APPROVED
+  DB UUID:   09be3399-4409-4e3a-ba7a-7b22ad51d411  Email: heheboi@gmail.com  Role: DRIVER  Status: APPROVED
+  DB UUID:   13bbc558-596a-4e1b-9058-376e4dd78ac8  Email: lol@gmail.com  Role: DRIVER  Status: APPROVED
+  DB UUID:   74b304b6-6cf3-44a6-9d5e-20c017115bad  Email: heheboi@gmail.com  Role: RIDER  Status: APPROVED
+  DB UUID:   0d2085df-9282-425b-b276-129877ee2ae6  Email: rohith@corideadmin.com  Role: ADMIN  Status: APPROVED
+  DB UUID:   0a122c3f-da8b-4eb9-a849-95ce9dac670b  Email: rider@gmail.com  Role: RIDER  Status: APPROVED
+  DB UUID:   426af385-ae6b-4c1b-88e5-97fc9d03527c  Email: rohith@corideadmin.com  Role: ADMIN  Status: PENDING
+  DB UUID:   45617715-86e0-45ca-acbd-403e81872111  Email: lol@gmail.com  Role: RIDER  Status: APPROVED
+  DB UUID:   5aefd775-fc1e-4f0d-8af0-cd007fac745a  Email: johndoe@gmail.com  Role: DRIVER  Status: APPROVED
+  DB UUID:   851584c9-498b-4ce8-b4a3-f45a299e4650  Email: lol@gmail.com  Role: DRIVER  Status: APPROVED
+  DB UUID:   d082098d-bb7c-4bd4-965b-9389d71c3847  Email: rider@gmail.com  Role: RIDER  Status: PENDING
+  DB UUID:   d2b546c2-59ca-4e1e-ac8d-772aba810de8  Email: johndoe@gmail.com  Role: DRIVER  Status: APPROVED
+  DB UUID:   00000000-0000-0000-0000-000000000001  Email: test@test.com  Role: RIDER  Status: PENDING
+
+=== UUID Match Check ===
+ÔÜá´©Å  johndoe@gmail.com: Email matches but UUIDs DIFFER!
+     Auth UUID: c2c79e4a-9144-4c8b-a642-e59fe843cd61
+     DB UUID:   5aefd775-fc1e-4f0d-8af0-cd007fac745a
+Ô£à rider@gmail.com: Auth UUID = DB UUID (d082098d-bb7c-4bd4-965b-9389d71c3847)
+Ô£à lol@gmail.com: Auth UUID = DB UUID (851584c9-498b-4ce8-b4a3-f45a299e4650)
+Ô£à rohith@corideadmin.com: Auth UUID = DB UUID (426af385-ae6b-4c1b-88e5-97fc9d03527c)
+Ô£à srohith2007@gmail.com: Auth UUID = DB UUID (ec0257a7-bbc6-4a65-9d6b-a375bd22a729)
+ÔØî 123srohith123@gmail.com: NOT FOUND in backend DB (Auth UUID: 7c60db8d-0485-4545-9d27-a3e8dbff73fb)

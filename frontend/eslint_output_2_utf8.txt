@@ -1,0 +1,6 @@
+﻿
+C:\Users\123sr\Downloads\RideWithMe-v1-main\frontend\src\components\ui\LocationAutocomplete.jsx
+  37:27  warning  'addr' is assigned a value but never used  no-unused-vars
+
+Ô£û 1 problem (0 errors, 1 warning)
+
