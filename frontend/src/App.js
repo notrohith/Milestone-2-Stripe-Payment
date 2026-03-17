@@ -1,6 +1,7 @@
 import React, { Component } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { NotificationProvider } from './context/NotificationContext';
 import { Toaster } from 'sonner';
 
 // Pages
@@ -54,6 +55,7 @@ function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
+        <NotificationProvider>
         <Router>
           <Routes>
             <Route path="/" element={<LandingPage />} />
@@ -82,6 +84,7 @@ function App() {
           </Routes>
           <Toaster position="top-right" />
         </Router>
+        </NotificationProvider>
       </AuthProvider>
     </ErrorBoundary>
   );

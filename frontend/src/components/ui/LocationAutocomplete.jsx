@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Input } from './input';
 import { Loader2, MapPin } from 'lucide-react';
-import { cn } from '../../lib/utils'; // Assuming this utility exists, otherwise omit
+import { cn } from '../../lib/utils';
+import { searchPlaces } from '../../lib/geocoding';
 
 export function LocationAutocomplete({
     value,
@@ -9,79 +10,68 @@ export function LocationAutocomplete({
     placeholder,
     className,
     icon: Icon = MapPin,
-    cityBias = '', // Optional bounding city for waypoints
+    cityBias = '',
     ...props
 }) {
     const [suggestions, setSuggestions] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [showDropdown, setShowDropdown] = useState(false);
     const wrapperRef = useRef(null);
+    // Ref to cancel in-flight search when value changes quickly
+    const cancelRef = useRef(false);
 
-    // Debounce search
+    // Debounced search using the shared geocoding service (serialised queue + cache)
+    const runSearch = useCallback(async (query, bias) => {
+        cancelRef.current = false;
+        setIsLoading(true);
+        try {
+            const results = await searchPlaces(query, bias);
+            // Only update state if this search wasn't superseded
+            if (!cancelRef.current) {
+                setSuggestions(results);
+            }
+        } catch (_) {
+            if (!cancelRef.current) setSuggestions([]);
+        } finally {
+            if (!cancelRef.current) setIsLoading(false);
+        }
+    }, []);
+
     useEffect(() => {
-        const fetchSuggestions = async () => {
-            if (!value || value.length < 3 || !showDropdown) {
-                setSuggestions([]);
-                return;
-            }
+        if (!value || value.length < 3 || !showDropdown) {
+            setSuggestions([]);
+            setIsLoading(false);
+            return;
+        }
 
-            setIsLoading(true);
-            try {
-                // Construct query, bias towards the city if provided
-                const query = cityBias ? `${value}, ${cityBias}` : value;
-                const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&addressdetails=1&accept-language=en&email=contact@ridewithme.com`);
-                const data = await res.json();
+        // Cancel previous in-flight search
+        cancelRef.current = true;
 
-                // Format the suggestions making them more readable
-                const formatted = (data || []).map(f => {
-                    const address = f.address || {};
-                    // Gather useful address parts, filter out empty ones
-                    const parts = [
-                        address.neighbourhood,
-                        address.suburb,
-                        address.city_district,
-                        address.city || address.town,
-                        address.state
-                    ].filter(Boolean);
+        // Debounce: wait for user to stop typing (1.5s)
+        const timer = setTimeout(() => {
+            runSearch(value, cityBias);
+        }, 1500);
 
-                    const displayName = parts.length > 0 ? parts.slice(0, 3).join(', ') : f.display_name;
-
-                    return {
-                        id: f.place_id || Math.random().toString(),
-                        name: displayName,
-                        raw: f
-                    };
-                });
-
-                // Remove duplicates by name
-                const unique = Array.from(new Map(formatted.map(item => [item.name, item])).values());
-
-                setSuggestions(unique);
-            } catch (err) {
-                console.error("Error fetching locations:", err);
-                setSuggestions([]);
-            } finally {
-                setIsLoading(false);
-            }
+        return () => {
+            clearTimeout(timer);
+            cancelRef.current = true;
         };
+    }, [value, cityBias, showDropdown, runSearch]);
 
-        const timeoutId = setTimeout(fetchSuggestions, 1000); // 1000ms debounce
-        return () => clearTimeout(timeoutId);
-    }, [value, cityBias, showDropdown]);
-
-    // Close dropdown when clicking outside
+    // Close dropdown on outside click
     useEffect(() => {
         function handleClickOutside(event) {
             if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
                 setShowDropdown(false);
             }
         }
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, [wrapperRef]);
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     const handleSelect = (suggestion) => {
-        onChange(suggestion.name);
+        onChange(suggestion.name, suggestion);
+        setSuggestions([]);
         setShowDropdown(false);
     };
 
@@ -99,7 +89,7 @@ export function LocationAutocomplete({
                         if (value && value.length >= 3) setShowDropdown(true);
                     }}
                     placeholder={placeholder}
-                    className={cn(Icon ? "pl-10" : "", className)}
+                    className={cn(Icon ? 'pl-10' : '', className)}
                     {...props}
                 />
                 {isLoading && (
@@ -107,15 +97,19 @@ export function LocationAutocomplete({
                 )}
             </div>
 
-            {/* Dropdown Menu */}
+            {/* Suggestions dropdown */}
             {showDropdown && suggestions.length > 0 && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-purple-200 rounded-md shadow-lg max-h-60 overflow-auto">
+                <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-60 overflow-auto">
                     <ul className="py-1">
                         {suggestions.map((suggestion) => (
                             <li
                                 key={suggestion.id}
-                                onClick={() => handleSelect(suggestion)}
-                                className="px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 cursor-pointer transition-colors line-clamp-2"
+                                onMouseDown={(e) => {
+                                    // Use mousedown so it fires before the input's blur
+                                    e.preventDefault();
+                                    handleSelect(suggestion);
+                                }}
+                                className="px-4 py-2 text-sm text-foreground hover:bg-muted cursor-pointer transition-colors line-clamp-2"
                             >
                                 {suggestion.name}
                             </li>
@@ -124,9 +118,9 @@ export function LocationAutocomplete({
                 </div>
             )}
 
-            {/* "No results" indicator when searching but empty */}
+            {/* No results */}
             {showDropdown && !isLoading && value && value.length >= 3 && suggestions.length === 0 && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-purple-200 rounded-md shadow-lg p-3 text-sm text-gray-500 text-center">
+                <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg p-3 text-sm text-muted-foreground text-center">
                     No matching locations found
                 </div>
             )}

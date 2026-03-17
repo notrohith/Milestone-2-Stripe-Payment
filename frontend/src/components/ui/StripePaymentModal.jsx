@@ -8,6 +8,7 @@ import {
 } from '@stripe/react-stripe-js';
 import { X, Lock, Loader2, CheckCircle, Car } from 'lucide-react';
 import api from '../../api/axiosClient';
+import { useAuth } from '../../context/AuthContext';
 
 const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
 
@@ -117,6 +118,7 @@ function CheckoutForm({ amount, onSuccess, rideId, participantId }) {
 
 // ── Main exported modal ───────────────────────────────────────────────────────
 export function StripePaymentModal({ isOpen, onClose, amount, onSuccess, driverName, rideId, participantId }) {
+    const { user } = useAuth();
     const [clientSecret, setClientSecret] = useState('');
     const [loading, setLoading] = useState(true);
     const [fetchError, setFetchError] = useState('');
@@ -128,7 +130,7 @@ export function StripePaymentModal({ isOpen, onClose, amount, onSuccess, driverN
         setFetchError('');
         setClientSecret('');
 
-        api.post('/api/payments/create-intent', { amount: Math.round(amount), currency: 'inr' })
+        api.post('/api/payments/create-intent', { amount: Math.round(amount), currency: 'inr', email: user?.email })
             .then(res => {
                 setClientSecret(res.data.clientSecret);
             })
@@ -137,7 +139,7 @@ export function StripePaymentModal({ isOpen, onClose, amount, onSuccess, driverN
                 setFetchError('Could not initialize payment. Please try again.');
             })
             .finally(() => setLoading(false));
-    }, [isOpen, amount]);
+    }, [isOpen, amount, user?.email]);
 
     if (!isOpen) return null;
 

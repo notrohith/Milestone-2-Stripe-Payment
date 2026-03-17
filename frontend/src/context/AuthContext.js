@@ -6,6 +6,7 @@ const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
+    const [session, setSession] = useState(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -47,6 +48,7 @@ export const AuthProvider = ({ children }) => {
                         }
                     }
                     setUser({ ...data.session.user, role });
+                    setSession(data.session);
                 }
             } catch (error) {
                 if (error.message?.includes('timed out')) {
@@ -87,6 +89,7 @@ export const AuthProvider = ({ children }) => {
                 }
 
                 setUser({ ...session.user, role });
+                setSession(session);
 
                 // Sync with backend on login
                 // Only sync if role is set (meaning profile is somewhat complete) or let the CompleteProfile page handle the first sync
@@ -104,6 +107,7 @@ export const AuthProvider = ({ children }) => {
                 }
             } else {
                 setUser(null);
+                setSession(null);
             }
             setLoading(false);
         });
@@ -135,8 +139,9 @@ export const AuthProvider = ({ children }) => {
         } catch (error) {
             console.error("Sign out error:", error);
         } finally {
-            setUser(null); // Force local logout
-            localStorage.clear(); // Clear any local storage artifacts
+            setUser(null);
+            setSession(null);
+            localStorage.clear();
         }
     };
 
@@ -166,7 +171,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, loading, signOut, signInWithGoogle, updateProfile, signUp }}>
+        <AuthContext.Provider value={{ user, session, loading, signOut, signInWithGoogle, updateProfile, signUp }}>
             {children}
         </AuthContext.Provider>
     );

@@ -99,6 +99,21 @@ public class EmailService {
         }
     }
 
+    public void sendSimpleMessage(String to, String subject, String text) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
+            helper.setFrom("CoRide <" + fromEmail + ">");
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(text);
+            mailSender.send(message);
+            System.out.println("Simple email sent to " + to);
+        } catch (Exception e) {
+            System.err.println("Failed to send simple email: " + e.getMessage());
+        }
+    }
+
     private static String buildDriverNotificationHtml(String driverName, String riderName,
                                                        String riderEmail, String source,
                                                        String dest, String time) {

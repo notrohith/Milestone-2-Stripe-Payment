@@ -154,5 +154,3 @@ npm test
 - Current security config is permissive for development (CORS and some public endpoints).
 - Realtime transport is configured with SockJS endpoint `/ws` and broker topic prefix `/topic`.
 - If you rotate credentials, update local secret files instead of hardcoding values.
-
-

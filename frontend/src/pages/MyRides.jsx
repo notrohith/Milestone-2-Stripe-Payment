@@ -4,12 +4,14 @@ import {
     Car, MapPin, Calendar, Users, IndianRupee, Check, X,
     Clock, ChevronDown, ChevronUp, Star, Shield, Route,
     Wind, Luggage, UserCheck, Loader2, Plus, CreditCard,
-    Search, CheckCircle2, XCircle, Hourglass
+    Search, CheckCircle2, XCircle, Hourglass, Download, Receipt
 } from "lucide-react";
 import { Navbar } from "../components/Navbar";
 import { Sidebar } from "../components/Sidebar";
 import { Button } from "../components/ui/button";
 import { StripePaymentModal } from "../components/ui/StripePaymentModal";
+import { ReceiptModal } from "../components/ReceiptModal";
+import { RateDriverModal } from "../components/RateDriverModal";
 import { toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axiosClient";
@@ -35,6 +37,7 @@ const participantStatusColors = {
     PAYMENT_PENDING: "bg-orange-100 text-orange-700",
     APPROVED: "bg-green-100 text-green-700",
     REJECTED: "bg-red-100 text-red-700",
+    CANCELLED: "bg-gray-100 text-gray-500",
 };
 
 const participantStatusLabels = {
@@ -42,6 +45,7 @@ const participantStatusLabels = {
     PAYMENT_PENDING: "Awaiting Payment",
     APPROVED: "Seat Confirmed",
     REJECTED: "Rejected",
+    CANCELLED: "Cancelled",
 };
 
 export default function MyRidesPage() {
@@ -55,8 +59,18 @@ export default function MyRidesPage() {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [activeTab, setActiveTab] = useState("scheduled");
 
-    // Payment modal state (for rider)
+    // Modal states
     const [paymentModal, setPaymentModal] = useState({ open: false, booking: null });
+    const [receiptModal, setReceiptModal] = useState({ open: false, booking: null });
+    const [rateModal, setRateModal] = useState({ open: false, booking: null });
+
+    // Track which bookings have been rated
+    const [ratedBookings, setRatedBookings] = useState(() => {
+        try {
+            const stored = localStorage.getItem('coride_rated_bookings');
+            return stored ? JSON.parse(stored) : [];
+        } catch (_) { return []; }
+    });
 
     useEffect(() => {
         if (!user?.email) return;
@@ -137,7 +151,7 @@ export default function MyRidesPage() {
     const handleStartRide = async (rideId) => {
         try {
             await api.patch(`/api/rides/${rideId}/status`, { status: "STARTED" });
-            toast.success("Ride started!");
+            toast.success("Ride started! Have a safe journey 🚗");
             fetchRides();
         } catch (e) {
             toast.error("Failed to start ride");
@@ -147,18 +161,59 @@ export default function MyRidesPage() {
     const handleCompleteRide = async (rideId) => {
         try {
             await api.patch(`/api/rides/${rideId}/status`, { status: "COMPLETED" });
-            toast.success("Ride completed!");
+            toast.success("Ride completed! Great job 🏁");
             fetchRides();
         } catch (e) {
             toast.error("Failed to complete ride");
         }
     };
 
+    const handleCancelRide = async (rideId) => {
+        if (!window.confirm('Are you sure you want to cancel this ride? All riders will be notified.')) return;
+        try {
+            await api.patch(`/api/rides/${rideId}/status`, { status: "CANCELLED" });
+            toast.success("Ride cancelled.");
+            fetchRides();
+        } catch (e) {
+            toast.error(e.response?.data?.message || "Failed to cancel ride");
+        }
+    };
+
+    const handleCancelBooking = async (rideId, participantId) => {
+        if (!window.confirm('Are you sure you want to cancel this booking?')) return;
+        try {
+            await api.post(`/api/rides/${rideId}/participants/${participantId}/cancel`);
+            toast.success("Booking cancelled.");
+            fetchBookings();
+        } catch (e) {
+            toast.error(e.response?.data?.message || "Failed to cancel booking");
+        }
+    };
+
+    // ── Payment success handler ────────────────────────────────────────────────
+    const handlePaymentSuccess = (booking) => {
+        setPaymentModal({ open: false, booking: null });
+        toast.success("Payment successful! Your seat is confirmed 🎉");
+        fetchBookings();
+        // Automatically open receipt after 600ms
+        setTimeout(() => {
+            setReceiptModal({ open: true, booking });
+        }, 600);
+    };
+
+    // ── Booking has been rated ─────────────────────────────────────────────────
+    const handleRatingSubmitted = (booking, rating) => {
+        const updatedRated = [...ratedBookings, booking.participantId];
+        setRatedBookings(updatedRated);
+        localStorage.setItem('coride_rated_bookings', JSON.stringify(updatedRated));
+    };
+
     // ── Driver tabs ────────────────────────────────────────────────────────────
     const driverTabs = [
         { id: "scheduled", label: "Scheduled", statuses: ["CREATED", "OPEN"] },
         { id: "ongoing", label: "Ongoing", statuses: ["STARTED"] },
-        { id: "completed", label: "Completed", statuses: ["COMPLETED", "CANCELLED"] },
+        { id: "completed", label: "Completed", statuses: ["COMPLETED"] },
+        { id: "cancelled", label: "Cancelled", statuses: ["CANCELLED"] },
     ];
 
     const currentTab = driverTabs.find(t => t.id === activeTab);
@@ -169,6 +224,7 @@ export default function MyRidesPage() {
     const approvedBookings = bookings.filter(b => b.status === "APPROVED");
     const pendingBookings = bookings.filter(b => b.status === "PENDING");
     const rejectedBookings = bookings.filter(b => b.status === "REJECTED");
+    const cancelledBookings = bookings.filter(b => b.status === "CANCELLED");
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50">
@@ -267,6 +323,7 @@ export default function MyRidesPage() {
                                             onReject={handleReject}
                                             onStart={handleStartRide}
                                             onComplete={handleCompleteRide}
+                                            onCancelRide={handleCancelRide}
                                         />
                                     ))}
                                 </div>
@@ -309,6 +366,7 @@ export default function MyRidesPage() {
                                                         key={b.participantId}
                                                         booking={b}
                                                         onPay={() => setPaymentModal({ open: true, booking: b })}
+                                                        onCancel={() => handleCancelBooking(b.ride?.id, b.participantId)}
                                                     />
                                                 ))}
                                             </div>
@@ -325,7 +383,17 @@ export default function MyRidesPage() {
                                             </div>
                                             <div className="space-y-4">
                                                 {approvedBookings.map(b => (
-                                                    <RiderBookingCard key={b.participantId} booking={b} />
+                                                    <RiderBookingCard
+                                                        key={b.participantId}
+                                                        booking={b}
+                                                        onDownloadReceipt={() => setReceiptModal({ open: true, booking: b })}
+                                                        onRateDriver={
+                                                            b.ride?.status === 'COMPLETED' && !ratedBookings.includes(b.participantId)
+                                                                ? () => setRateModal({ open: true, booking: b })
+                                                                : null
+                                                        }
+                                                        hasRated={ratedBookings.includes(b.participantId)}
+                                                    />
                                                 ))}
                                             </div>
                                         </section>
@@ -341,7 +409,11 @@ export default function MyRidesPage() {
                                             </div>
                                             <div className="space-y-4">
                                                 {pendingBookings.map(b => (
-                                                    <RiderBookingCard key={b.participantId} booking={b} />
+                                                    <RiderBookingCard
+                                                        key={b.participantId}
+                                                        booking={b}
+                                                        onCancel={() => handleCancelBooking(b.ride?.id, b.participantId)}
+                                                    />
                                                 ))}
                                             </div>
                                         </section>
@@ -357,6 +429,22 @@ export default function MyRidesPage() {
                                             </div>
                                             <div className="space-y-4">
                                                 {rejectedBookings.map(b => (
+                                                    <RiderBookingCard key={b.participantId} booking={b} />
+                                                ))}
+                                            </div>
+                                        </section>
+                                    )}
+
+                                    {/* Cancelled */}
+                                    {cancelledBookings.length > 0 && (
+                                        <section>
+                                            <div className="flex items-center gap-2 mb-4">
+                                                <XCircle className="w-5 h-5 text-gray-400" />
+                                                <h2 className="text-lg font-bold text-gray-800">Cancelled</h2>
+                                                <span className="ml-1 bg-gray-100 text-gray-500 text-xs font-bold px-2 py-0.5 rounded-full">{cancelledBookings.length}</span>
+                                            </div>
+                                            <div className="space-y-4">
+                                                {cancelledBookings.map(b => (
                                                     <RiderBookingCard key={b.participantId} booking={b} />
                                                 ))}
                                             </div>
@@ -378,21 +466,35 @@ export default function MyRidesPage() {
                     driverName={paymentModal.booking.ride?.driver?.name || paymentModal.booking.ride?.driver?.email || 'Driver'}
                     rideId={paymentModal.booking.ride?.id}
                     participantId={paymentModal.booking.participantId}
-                    onSuccess={() => {
-                        setPaymentModal({ open: false, booking: null });
-                        toast.success("Payment successful! Your seat is confirmed 🎉");
-                        fetchBookings();
-                    }}
+                    onSuccess={() => handlePaymentSuccess(paymentModal.booking)}
                 />
             )}
+
+            {/* Receipt Modal */}
+            <ReceiptModal
+                isOpen={receiptModal.open}
+                onClose={() => setReceiptModal({ open: false, booking: null })}
+                booking={receiptModal.booking}
+            />
+
+            {/* Rate Driver Modal */}
+            <RateDriverModal
+                isOpen={rateModal.open}
+                onClose={() => setRateModal({ open: false, booking: null })}
+                booking={rateModal.booking}
+                onSubmitted={(rating) => {
+                    if (rateModal.booking) handleRatingSubmitted(rateModal.booking, rating);
+                }}
+            />
         </div>
     );
 }
 
 // ── Rider Booking Card ─────────────────────────────────────────────────────────
-function RiderBookingCard({ booking, onPay }) {
+function RiderBookingCard({ booking, onPay, onDownloadReceipt, onRateDriver, hasRated, onCancel }) {
     const ride = booking.ride;
     const status = booking.status;
+    const rideStatus = ride?.status;
 
     const formatDate = (dt) => {
         if (!dt) return '';
@@ -408,6 +510,7 @@ function RiderBookingCard({ booking, onPay }) {
         PAYMENT_PENDING: { label: 'Pay to Confirm Seat', className: 'bg-orange-100 text-orange-700 border-orange-200', icon: <CreditCard className="w-3.5 h-3.5" /> },
         APPROVED: { label: 'Seat Confirmed ✓', className: 'bg-green-100 text-green-700 border-green-200', icon: <CheckCircle2 className="w-3.5 h-3.5" /> },
         REJECTED: { label: 'Declined', className: 'bg-red-100 text-red-600 border-red-200', icon: <XCircle className="w-3.5 h-3.5" /> },
+        CANCELLED: { label: 'Cancelled', className: 'bg-gray-100 text-gray-500 border-gray-200', icon: <XCircle className="w-3.5 h-3.5" /> },
     };
 
     const sc = statusConfig[status] || statusConfig.PENDING;
@@ -424,6 +527,11 @@ function RiderBookingCard({ booking, onPay }) {
                         <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
                             <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{formatDate(ride?.startTime)}</span>
                             <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{formatTime(ride?.startTime)}</span>
+                            {rideStatus && (
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${statusColors[rideStatus] || 'bg-gray-100 text-gray-500'}`}>
+                                    {statusLabels[rideStatus] || rideStatus}
+                                </span>
+                            )}
                         </div>
                     </div>
                     <span className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border ${sc.className}`}>
@@ -453,7 +561,7 @@ function RiderBookingCard({ booking, onPay }) {
                     </div>
                 </div>
 
-                {/* Pay Now button for PAYMENT_PENDING rides */}
+                {/* Pay Now button */}
                 {status === 'PAYMENT_PENDING' && onPay && (
                     <div className="mt-4 pt-4 border-t border-orange-100">
                         <div className="bg-orange-50 rounded-xl p-3 mb-3 text-sm text-orange-700 font-medium flex items-center gap-2">
@@ -470,11 +578,43 @@ function RiderBookingCard({ booking, onPay }) {
                     </div>
                 )}
 
+                {/* Approved state with receipt + rate driver */}
                 {status === 'APPROVED' && (
-                    <div className="mt-4 pt-4 border-t border-green-100">
+                    <div className="mt-4 pt-4 border-t border-green-100 space-y-3">
                         <div className="bg-green-50 rounded-xl p-3 text-sm text-green-700 font-medium flex items-center gap-2">
                             <CheckCircle2 className="w-4 h-4 shrink-0" />
                             Your seat is confirmed and payment is complete. Enjoy the ride!
+                        </div>
+
+                        {/* Action row */}
+                        <div className="flex gap-2">
+                            {/* Download Receipt */}
+                            {onDownloadReceipt && (
+                                <button
+                                    onClick={onDownloadReceipt}
+                                    className="flex-1 flex items-center justify-center gap-2 border border-purple-200 text-purple-700 hover:bg-purple-50 font-semibold py-2.5 rounded-xl text-sm transition-all hover:scale-[1.02]"
+                                >
+                                    <Receipt className="w-4 h-4" />
+                                    Receipt
+                                </button>
+                            )}
+
+                            {/* Rate Driver — only after ride COMPLETED */}
+                            {onRateDriver && !hasRated && (
+                                <button
+                                    onClick={onRateDriver}
+                                    className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-yellow-400 to-orange-400 hover:from-yellow-500 hover:to-orange-500 text-white font-bold py-2.5 rounded-xl text-sm transition-all shadow-md shadow-yellow-200 hover:scale-[1.02]"
+                                >
+                                    <Star className="w-4 h-4 fill-white" />
+                                    Rate Driver
+                                </button>
+                            )}
+                            {hasRated && (
+                                <div className="flex-1 flex items-center justify-center gap-1.5 bg-yellow-50 border border-yellow-200 text-yellow-700 font-semibold py-2.5 rounded-xl text-sm">
+                                    <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                                    Rated
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
@@ -485,6 +625,15 @@ function RiderBookingCard({ booking, onPay }) {
                             <Hourglass className="w-4 h-4 shrink-0" />
                             Waiting for the driver to review your request. You'll receive an email once approved.
                         </p>
+                        {onCancel && (
+                            <button
+                                onClick={onCancel}
+                                className="mt-3 w-full flex items-center justify-center gap-2 border border-red-200 text-red-500 hover:bg-red-50 font-semibold py-2.5 rounded-xl text-sm transition-all"
+                            >
+                                <XCircle className="w-4 h-4" />
+                                Cancel Request
+                            </button>
+                        )}
                     </div>
                 )}
 
@@ -496,13 +645,34 @@ function RiderBookingCard({ booking, onPay }) {
                         </p>
                     </div>
                 )}
+
+                {status === 'CANCELLED' && (
+                    <div className="mt-4 pt-4 border-t border-gray-100">
+                        <p className="text-sm text-gray-500 bg-gray-50 rounded-xl p-3 flex items-center gap-2">
+                            <XCircle className="w-4 h-4 shrink-0" />
+                            You cancelled this booking.
+                        </p>
+                    </div>
+                )}
+
+                {status === 'PAYMENT_PENDING' && onCancel && (
+                    <div className="mt-2">
+                        <button
+                            onClick={onCancel}
+                            className="w-full flex items-center justify-center gap-2 border border-red-200 text-red-500 hover:bg-red-50 font-semibold py-2.5 rounded-xl text-sm transition-all"
+                        >
+                            <XCircle className="w-4 h-4" />
+                            Cancel Request
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     );
 }
 
 // ── Driver Ride Card ───────────────────────────────────────────────────────────
-function DriverRideCard({ ride, onApprove, onReject, onStart, onComplete }) {
+function DriverRideCard({ ride, onApprove, onReject, onStart, onComplete, onCancelRide }) {
     const [expanded, setExpanded] = useState(false);
     const [processingParticipantId, setProcessingParticipantId] = useState(null);
     const pendingCount = ride.participants?.filter(p => p.status === "PENDING").length || 0;
@@ -519,28 +689,20 @@ function DriverRideCard({ ride, onApprove, onReject, onStart, onComplete }) {
     const handleApproveClick = async (rideId, participantId) => {
         if (processingParticipantId) return;
         setProcessingParticipantId(participantId);
-        try {
-            await onApprove(rideId, participantId);
-        } finally {
-            setProcessingParticipantId(null);
-        }
+        try { await onApprove(rideId, participantId); }
+        finally { setProcessingParticipantId(null); }
     };
 
     const handleRejectClick = async (rideId, participantId) => {
         if (processingParticipantId) return;
         setProcessingParticipantId(participantId);
-        try {
-            await onReject(rideId, participantId);
-        } finally {
-            setProcessingParticipantId(null);
-        }
+        try { await onReject(rideId, participantId); }
+        finally { setProcessingParticipantId(null); }
     };
 
     return (
         <div className="bg-white rounded-2xl shadow-lg border border-purple-100 overflow-hidden hover:shadow-xl transition-all duration-300">
-            {/* Card Header - always visible */}
             <div className="p-6">
-                {/* Top row: driver info + price */}
                 <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
                         <div className="w-11 h-11 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-bold text-lg">
@@ -562,7 +724,6 @@ function DriverRideCard({ ride, onApprove, onReject, onStart, onComplete }) {
                     </div>
                 </div>
 
-                {/* Route */}
                 <div className="flex items-start gap-3 mb-4">
                     <div className="flex flex-col items-center gap-1 pt-1 shrink-0">
                         <div className="w-3 h-3 rounded-full bg-green-500 border-2 border-green-200" />
@@ -587,7 +748,6 @@ function DriverRideCard({ ride, onApprove, onReject, onStart, onComplete }) {
                     </div>
                 </div>
 
-                {/* Tags row */}
                 <div className="flex flex-wrap gap-2 mb-4">
                     <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${statusColors[ride.status] || statusColors.OPEN}`}>
                         {statusLabels[ride.status] || ride.status}
@@ -613,7 +773,6 @@ function DriverRideCard({ ride, onApprove, onReject, onStart, onComplete }) {
                     )}
                 </div>
 
-                {/* Action Buttons */}
                 <div className="flex gap-2">
                     {(ride.status === "CREATED" || ride.status === "OPEN") && (
                         <Button
@@ -636,6 +795,21 @@ function DriverRideCard({ ride, onApprove, onReject, onStart, onComplete }) {
                             Completed
                         </Button>
                     )}
+                    {ride.status === "CANCELLED" && (
+                        <Button variant="outline" disabled className="flex-1 text-red-400">
+                            Cancelled
+                        </Button>
+                    )}
+                    {(ride.status === "CREATED" || ride.status === "OPEN" || ride.status === "STARTED") && (
+                        <Button
+                            variant="outline"
+                            onClick={() => onCancelRide(ride.id)}
+                            className="border-red-200 text-red-500 hover:bg-red-50 px-3"
+                            title="Cancel Ride"
+                        >
+                            <X className="w-4 h-4" />
+                        </Button>
+                    )}
                     <Button
                         variant="outline"
                         onClick={() => setExpanded(!expanded)}
@@ -646,10 +820,8 @@ function DriverRideCard({ ride, onApprove, onReject, onStart, onComplete }) {
                 </div>
             </div>
 
-            {/* Expanded Section */}
             {expanded && (
                 <div className="border-t border-purple-100 bg-gradient-to-b from-purple-50/30 to-pink-50/20 p-6 space-y-6">
-                    {/* Ride Details */}
                     <div>
                         <h4 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-3">Ride Details</h4>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -676,7 +848,6 @@ function DriverRideCard({ ride, onApprove, onReject, onStart, onComplete }) {
                         </div>
                     </div>
 
-                    {/* Booking Requests */}
                     {ride.participants && ride.participants.length > 0 ? (
                         <div>
                             <h4 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
@@ -723,7 +894,6 @@ function DriverRideCard({ ride, onApprove, onReject, onStart, onComplete }) {
                                                 )}
                                             </div>
                                         </div>
-                                        {/* Rider extra details */}
                                         {(p.rider?.gender || p.rider?.dateOfBirth) && (
                                             <div className="border-t border-purple-50 px-4 py-2 flex gap-4 bg-purple-50/30">
                                                 {p.rider?.gender && (

@@ -142,7 +142,7 @@ const DriverDashboard = () => {
     };
 
     return (
-        <div className="flex flex-col h-screen bg-[#F5F5DC] overflow-hidden">
+        <div className="flex flex-col h-screen bg-muted/30 overflow-hidden">
             <Navbar onToggleSidebar={() => setSidebarOpen(true)} />
 
             <div className="flex flex-1 overflow-hidden pt-16">
@@ -235,13 +235,13 @@ const DriverDashboard = () => {
 
                         <div className="grid lg:grid-cols-3 gap-8">
                             {/* Statistics */}
-                            <Card className="lg:col-span-1 h-full border-none shadow-lg bg-gradient-to-br from-white to-slate-50">
+                            <Card className="lg:col-span-1 h-full border-none shadow-lg bg-gradient-to-br from-white to-slate-50 dark:from-card dark:to-card">
                                 <CardHeader>
-                                    <CardTitle>Daily Income</CardTitle>
+                                    <CardTitle className="text-foreground">Daily Income</CardTitle>
                                 </CardHeader>
                                 <CardContent>
                                     <div className="flex items-baseline gap-1">
-                                        <span className="text-4xl font-bold text-gray-900">₹850.00</span>
+                                        <span className="text-4xl font-bold text-gray-900 dark:text-foreground">₹850.00</span>
                                     </div>
                                     <div className="flex items-center gap-2 mt-2 text-xs font-medium text-green-600 bg-green-50 w-fit px-2 py-1 rounded-full">
                                         <TrendingUp className="w-3 h-3" />
@@ -261,20 +261,20 @@ const DriverDashboard = () => {
                             </Card>
 
                             {/* Trip History Section */}
-                            <Card className="lg:col-span-2 border-none shadow-md">
+                            <Card className="lg:col-span-2 border-none shadow-md bg-white dark:bg-card">
                                 <CardHeader>
-                                    <CardTitle>Trip History</CardTitle>
+                                    <CardTitle className="text-foreground">Trip History</CardTitle>
                                     <CardDescription>Log of your completed journeys</CardDescription>
                                 </CardHeader>
                                 <CardContent className="p-0">
-                                    <div className="bg-white rounded-xl overflow-hidden">
+                                    <div className="bg-white dark:bg-card rounded-xl overflow-hidden">
                                         {[1, 2, 3].map((ride, i) => (
-                                            <div key={i} className="flex items-center p-4 border-b last:border-0 hover:bg-slate-50 transition-colors">
-                                                <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-gray-400 mr-4">
+                                            <div key={i} className="flex items-center p-4 border-b dark:border-border last:border-0 hover:bg-slate-50 dark:hover:bg-muted transition-colors">
+                                                <div className="h-10 w-10 rounded-full bg-slate-100 dark:bg-muted flex items-center justify-center text-xs font-bold text-gray-400 mr-4">
                                                     IMG
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <h5 className="font-bold text-gray-900 text-sm">{i === 0 ? 'Office Drop - Tech Park' : i === 1 ? 'Airport Pickup' : 'Mall Visit - Weekend'}</h5>
+                                                    <h5 className="font-bold text-gray-900 dark:text-foreground text-sm">{i === 0 ? 'Office Drop - Tech Park' : i === 1 ? 'Airport Pickup' : 'Mall Visit - Weekend'}</h5>
                                                     <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
                                                         <Clock className="w-3 h-3" /> {i === 0 ? 'Today, 09:00 AM' : 'Yesterday, 8:45 PM'}
                                                     </div>

@@ -10,7 +10,7 @@ const RiderDashboard = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
     return (
-        <div className="flex flex-col h-screen bg-[#F5F5DC] overflow-hidden">
+        <div className="flex flex-col h-screen bg-muted/30 overflow-hidden">
             <Navbar onToggleSidebar={() => setSidebarOpen(true)} />
 
             <div className="flex flex-1 overflow-hidden pt-16">
@@ -77,13 +77,13 @@ const RiderDashboard = () => {
 
                         <div className="grid lg:grid-cols-3 gap-8">
                             {/* Statistics */}
-                            <Card className="lg:col-span-1 h-full border-none shadow-lg bg-gradient-to-br from-white to-slate-50">
+                            <Card className="lg:col-span-1 h-full border-none shadow-lg bg-gradient-to-br from-white to-slate-50 dark:from-card dark:to-card">
                                 <CardHeader>
-                                    <CardTitle>Recent Spendings</CardTitle>
+                                    <CardTitle className="text-foreground">Recent Spendings</CardTitle>
                                 </CardHeader>
                                 <CardContent>
                                     <div className="flex items-baseline gap-1">
-                                        <span className="text-4xl font-bold text-gray-900">₹8,450.00</span>
+                                        <span className="text-4xl font-bold text-gray-900 dark:text-foreground">₹8,450.00</span>
                                     </div>
                                     <div className="flex items-center gap-2 mt-2 text-xs font-medium text-red-600 bg-red-50 w-fit px-2 py-1 rounded-full">
                                         <TrendingUp className="w-3 h-3" />
@@ -107,32 +107,32 @@ const RiderDashboard = () => {
                             </Card>
 
                             {/* Ride History Section */}
-                            <Card className="lg:col-span-2 border-none shadow-md">
+                            <Card className="lg:col-span-2 border-none shadow-md bg-white dark:bg-card">
                                 <CardHeader>
-                                    <CardTitle>Ride History</CardTitle>
+                                    <CardTitle className="text-foreground">Ride History</CardTitle>
                                     <CardDescription>Log of your past journeys</CardDescription>
                                 </CardHeader>
                                 <CardContent className="p-0">
-                                    <div className="bg-white rounded-xl overflow-hidden">
+                                    <div className="bg-white dark:bg-card rounded-xl overflow-hidden">
                                         {[
                                             { dest: "Tech Park, HSR Layout", time: "Today, 08:30 AM", amount: "₹350.00", status: "Completed", rating: "5.0 ★" },
                                             { dest: "Kempegowda Intl Airport", time: "Yesterday, 2:15 PM", amount: "₹1,250.00", status: "Completed", rating: "4.8 ★" },
                                             { dest: "Phoenix Marketcity", time: "Oct 24, 6:00 PM", amount: "₹420.00", status: "Completed", rating: "5.0 ★" },
                                             { dest: "Indiranagar 100ft Road", time: "Oct 20, 9:15 PM", amount: "₹280.00", status: "Cancelled", rating: "N/A" }
                                         ].map((ride, i) => (
-                                            <div key={i} className="flex items-center p-4 border-b last:border-0 hover:bg-slate-50 transition-colors">
+                                            <div key={i} className="flex items-center p-4 border-b dark:border-border last:border-0 hover:bg-slate-50 dark:hover:bg-muted transition-colors">
                                                 <div className={`h-10 w-10 rounded-full flex items-center justify-center mr-4 ${ride.status === 'Cancelled' ? 'bg-red-50 text-red-500' : 'bg-blue-50 text-blue-500'}`}>
                                                     <MapPin className="w-5 h-5" />
                                                 </div>
                                                 <div className="flex-1 min-w-0 pr-4">
-                                                    <h5 className="font-bold text-gray-900 text-sm truncate">{ride.dest}</h5>
+                                                    <h5 className="font-bold text-gray-900 dark:text-foreground text-sm truncate">{ride.dest}</h5>
                                                     <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
                                                         <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {ride.time}</span>
                                                         <span className="font-medium text-amber-600">{ride.rating}</span>
                                                     </div>
                                                 </div>
                                                 <div className="text-right">
-                                                    <p className={`font-bold ${ride.status === 'Cancelled' ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+                                                    <p className={`font-bold ${ride.status === 'Cancelled' ? 'text-gray-400 line-through' : 'text-gray-900 dark:text-foreground'}`}>
                                                         {ride.amount}
                                                     </p>
                                                     <p className={`text-[10px] uppercase font-bold ${ride.status === 'Cancelled' ? 'text-red-400' : 'text-green-500'}`}>

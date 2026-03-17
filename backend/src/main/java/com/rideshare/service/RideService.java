@@ -8,7 +8,6 @@ import com.rideshare.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -20,12 +19,14 @@ public class RideService {
     private final UserRepository userRepository;
     private final RideParticipantRepository participantRepository;
     private final EmailService emailService;
+    private final NotificationService notificationService;
 
-    public RideService(RideRepository rideRepository, UserRepository userRepository, RideParticipantRepository participantRepository, EmailService emailService) {
+    public RideService(RideRepository rideRepository, UserRepository userRepository, RideParticipantRepository participantRepository, EmailService emailService, NotificationService notificationService) {
         this.rideRepository = rideRepository;
         this.userRepository = userRepository;
         this.participantRepository = participantRepository;
         this.emailService = emailService;
+        this.notificationService = notificationService;
     }
 
     @Transactional
@@ -85,13 +86,19 @@ public class RideService {
 
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public List<Ride> searchRides(String source, String dest) {
-        if ((source == null || source.isBlank()) && (dest == null || dest.isBlank())) {
-            return rideRepository.findAllAvailable();
+        try {
+            if ((source == null || source.isBlank()) && (dest == null || dest.isBlank())) {
+                return rideRepository.findAllAvailable();
+            }
+            return rideRepository.searchRides(
+                    source != null ? source : "",
+                    dest != null ? dest : ""
+            );
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.err.println("SEARCH ERROR: " + e.getMessage());
+            throw e;
         }
-        return rideRepository.searchRides(
-                source != null ? source : "",
-                dest != null ? dest : ""
-        );
     }
     
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
@@ -119,13 +126,11 @@ public class RideService {
                 .orElseThrow(() -> new RuntimeException("Ride not found"));
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // JOIN_REQUEST — Rider sends join request → Driver gets notification
+    // ─────────────────────────────────────────────────────────────────────────
     @Transactional
     public void joinRide(Long rideId, UUID riderId) {
-        // PESSIMISTIC LOCK could be added on the repository query, but here we use transactional isolation.
-        // For stricter concurrency control, we should ideally lock the row.
-        // Assuming default isolation level usually READ_COMMITTED, explicit locking is safer.
-        
-        // Simpler approach for this demo: Check available seats inside transaction
         Ride ride = rideRepository.findById(rideId)
                 .orElseThrow(() -> new RuntimeException("Ride not found"));
                 
@@ -145,15 +150,11 @@ public class RideService {
         User rider = userRepository.findById(riderId)
                 .orElseThrow(() -> new RuntimeException("Rider not found"));
 
-        // Don't decrement seats yet, wait for approval
-        // ride.setAvailableSeats(ride.getAvailableSeats() - 1);
-        // rideRepository.save(ride);
-
         // Add participant
         RideParticipant participant = new RideParticipant();
         participant.setRide(ride);
         participant.setRider(rider);
-        participant.setFareAtBooking(ride.getPricePerSeat()); // Snapshot price
+        participant.setFareAtBooking(ride.getPricePerSeat());
         participantRepository.save(participant);
 
         // Notify driver via email
@@ -169,8 +170,18 @@ public class RideService {
                     timeStr
             );
         } catch (Exception e) {
-            System.err.println("Failed to send driver notification: " + e.getMessage());
+            System.err.println("Failed to send driver notification email: " + e.getMessage());
         }
+
+        // ▸ Notification → DRIVER: JOIN_REQUEST
+        notificationService.createNotification(
+                ride.getDriver().getId(),
+                "DRIVER",
+                "JOIN_REQUEST",
+                "New Ride Request",
+                "A rider requested to join your ride from " + ride.getSourceCity() + " to " + ride.getDestinationCity() + ". Approve in Driver Hub.",
+                rideId
+        );
     }
 
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
@@ -178,6 +189,10 @@ public class RideService {
         return participantRepository.findByRiderId(riderId);
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // UPDATE STATUS — Handles STARTED, COMPLETED, CANCELLED ride transitions
+    // Notifications: RIDE_STARTED, RIDE_ENDED, RIDE_CANCELLED → all APPROVED riders
+    // ─────────────────────────────────────────────────────────────────────────
     @Transactional
     public Ride updateStatus(Long rideId, RideStatus status, UUID driverId, String driverEmail) {
         Ride ride = rideRepository.findById(rideId)
@@ -187,20 +202,68 @@ public class RideService {
             throw new RuntimeException("Unauthorized");
         }
         
-        // Basic lifecycle validation
         if (ride.getStatus() == RideStatus.COMPLETED) {
             throw new RuntimeException("Cannot update completed ride");
         }
         
-        // Prevent going back
         if (ride.getStatus() == RideStatus.STARTED && status == RideStatus.CREATED) {
              throw new RuntimeException("Cannot revert started ride to created");
         }
 
         ride.setStatus(status);
-        return rideRepository.save(ride);
+        Ride saved = rideRepository.save(ride);
+
+        // Get all approved riders for this ride to send notifications
+        List<RideParticipant> approvedRiders = participantRepository.findByRideIdAndStatus(rideId, ParticipantStatus.APPROVED);
+
+        if (status == RideStatus.STARTED) {
+            // ▸ Notification → all RIDERS: RIDE_STARTED
+            for (RideParticipant p : approvedRiders) {
+                notificationService.createNotification(
+                        p.getRider().getId(),
+                        "RIDER",
+                        "RIDE_STARTED",
+                        "Ride Started! 🚗",
+                        "Your ride has started.",
+                        rideId
+                );
+            }
+        } else if (status == RideStatus.COMPLETED) {
+            // ▸ Notification → all RIDERS: RIDE_ENDED
+            for (RideParticipant p : approvedRiders) {
+                notificationService.createNotification(
+                        p.getRider().getId(),
+                        "RIDER",
+                        "RIDE_ENDED",
+                        "Ride Completed 🏁",
+                        "Ride completed. Please rate your driver.",
+                        rideId
+                );
+            }
+        } else if (status == RideStatus.CANCELLED) {
+            // ▸ Notification → all participants (not just APPROVED): RIDE_CANCELLED
+            List<RideParticipant> allParticipants = participantRepository.findByRideId(rideId);
+            for (RideParticipant p : allParticipants) {
+                ParticipantStatus pStatus = p.getStatus();
+                if (pStatus == ParticipantStatus.APPROVED || pStatus == ParticipantStatus.PENDING || pStatus == ParticipantStatus.PAYMENT_PENDING) {
+                    notificationService.createNotification(
+                            p.getRider().getId(),
+                            "RIDER",
+                            "RIDE_CANCELLED",
+                            "Ride Cancelled",
+                            "The driver cancelled the ride.",
+                            rideId
+                    );
+                }
+            }
+        }
+
+        return saved;
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // REQUEST_APPROVED — Driver approves rider → Rider gets notification
+    // ─────────────────────────────────────────────────────────────────────────
     @Transactional
     public void approveRider(Long rideId, Long participantId, UUID driverId, String driverEmail) {
         Ride ride = rideRepository.findById(rideId)
@@ -238,11 +301,23 @@ public class RideService {
                     ride.getDriver().getName()
             );
         } catch (Exception e) {
-            // Approval should not fail if notification email fails.
             System.err.println("Failed to send ride approval email: " + e.getMessage());
         }
+        
+        // ▸ Notification → RIDER: REQUEST_APPROVED
+        notificationService.createNotification(
+                participant.getRider().getId(),
+                "RIDER",
+                "REQUEST_APPROVED",
+                "Ride Request Approved!",
+                "Your ride request was approved. Please complete payment to confirm your seat.",
+                rideId
+        );
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // PAYMENT_SUCCESS — Rider pays → Driver gets notification + check RIDE_FULL
+    // ─────────────────────────────────────────────────────────────────────────
     @Transactional
     public void confirmPayment(Long rideId, Long participantId, UUID riderId) {
         Ride ride = rideRepository.findById(rideId)
@@ -266,8 +341,70 @@ public class RideService {
 
         ride.setAvailableSeats(ride.getAvailableSeats() - 1);
         rideRepository.save(ride);
+
+        // ▸ Notification → RIDER: PAYMENT_SUCCESS
+        notificationService.createNotification(
+                participant.getRider().getId(),
+                "RIDER",
+                "PAYMENT_SUCCESS",
+                "Payment Successful ✓",
+                "Your payment was successful. Your seat is confirmed.",
+                rideId
+        );
+
+        // ▸ Notification → DRIVER: PAYMENT_SUCCESS
+        String riderName = participant.getRider().getName() != null ? participant.getRider().getName() : participant.getRider().getEmail();
+        notificationService.createNotification(
+                ride.getDriver().getId(),
+                "DRIVER",
+                "PAYMENT_SUCCESS",
+                "Payment Received!",
+                "A rider has confirmed their seat by completing payment.",
+                rideId
+        );
+
+        try {
+            String subject = "Seat Confirmed for Ride to " + ride.getDestinationCity();
+            String text = "Hello " + ride.getDriver().getName() + ",\n\n" +
+                    riderName + " has successfully paid for their seat.\n\n" +
+                    "Ride: " + ride.getSourceCity() + " to " + ride.getDestinationCity() + "\n\n" +
+                    "You can view the full details in your Driver Hub.\n\n" +
+                    "Thanks,\nRideWithMe";
+            emailService.sendSimpleMessage(ride.getDriver().getEmail(), subject, text);
+        } catch (Exception e) {
+            System.err.println("Failed to send driver notification: " + e.getMessage());
+        }
+
+        // Check if ride is now full → RIDE_FULL notifications
+        if (ride.getAvailableSeats() <= 0) {
+            // ▸ Notification → DRIVER: RIDE_FULL
+            notificationService.createNotification(
+                    ride.getDriver().getId(),
+                    "DRIVER",
+                    "RIDE_FULL",
+                    "Ride Fully Booked! 🎉",
+                    "Your ride is now fully booked.",
+                    rideId
+            );
+
+            // ▸ Notification → all approved RIDERS: RIDE_FULL
+            List<RideParticipant> approvedRiders = participantRepository.findByRideIdAndStatus(rideId, ParticipantStatus.APPROVED);
+            for (RideParticipant p : approvedRiders) {
+                notificationService.createNotification(
+                        p.getRider().getId(),
+                        "RIDER",
+                        "RIDE_FULL",
+                        "Ride Full",
+                        "This ride is now full.",
+                        rideId
+                );
+            }
+        }
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // REQUEST_REJECTED — Driver rejects rider → Rider gets notification
+    // ─────────────────────────────────────────────────────────────────────────
     @Transactional
     public void rejectRider(Long rideId, Long participantId, UUID driverId, String driverEmail) {
         Ride ride = rideRepository.findById(rideId)
@@ -290,6 +427,102 @@ public class RideService {
 
         participant.setStatus(ParticipantStatus.REJECTED);
         participantRepository.save(participant);
+
+        // ▸ Notification → RIDER: REQUEST_REJECTED
+        notificationService.createNotification(
+                participant.getRider().getId(),
+                "RIDER",
+                "REQUEST_REJECTED",
+                "Ride Request Rejected",
+                "Your ride request was rejected by the driver.",
+                rideId
+        );
+
+        try {
+            String subject = "Ride Request Update";
+            String text = "Hello " + participant.getRider().getName() + ",\n\n" +
+                    "Unfortunately, your request to join the ride from " + ride.getSourceCity() + " to " + ride.getDestinationCity() + " has been rejected by the driver.\n\n" +
+                    "You can search for other available rides on RideWithMe.\n\n" +
+                    "Thanks,\nRideWithMe";
+            emailService.sendSimpleMessage(participant.getRider().getEmail(), subject, text);
+        } catch (Exception e) {
+            System.err.println("Failed to send rider rejection email: " + e.getMessage());
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // RIDER_CANCELLED — Rider cancels their booking → Driver gets notification
+    // ─────────────────────────────────────────────────────────────────────────
+    @Transactional
+    public void cancelBooking(Long rideId, Long participantId, UUID riderId) {
+        Ride ride = rideRepository.findById(rideId)
+                .orElseThrow(() -> new RuntimeException("Ride not found"));
+
+        RideParticipant participant = participantRepository.findById(participantId)
+                .orElseThrow(() -> new RuntimeException("Participant not found"));
+        if (!participant.getRide().getId().equals(rideId)) {
+            throw new RuntimeException("Participant not part of this ride");
+        }
+        if (!participant.getRider().getId().equals(riderId)) {
+            throw new RuntimeException("Unauthorized");
+        }
+        if (participant.getStatus() == ParticipantStatus.CANCELLED || participant.getStatus() == ParticipantStatus.REJECTED) {
+            throw new RuntimeException("Booking is already cancelled or rejected");
+        }
+
+        // If seat was reserved (APPROVED status), free it back
+        if (participant.getStatus() == ParticipantStatus.APPROVED) {
+            ride.setAvailableSeats(ride.getAvailableSeats() + 1);
+            rideRepository.save(ride);
+        }
+
+        participant.setStatus(ParticipantStatus.CANCELLED);
+        participantRepository.save(participant);
+
+        // ▸ Notification → DRIVER: RIDER_CANCELLED
+        notificationService.createNotification(
+                ride.getDriver().getId(),
+                "DRIVER",
+                "RIDER_CANCELLED",
+                "Booking Cancelled",
+                "A rider cancelled their booking.",
+                rideId
+        );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // RATING_RECEIVED — Rider rates driver → Driver gets notification
+    // ─────────────────────────────────────────────────────────────────────────
+    @Transactional
+    public void rateDriver(Long rideId, Long participantId, UUID riderId, int rating, String review) {
+        Ride ride = rideRepository.findById(rideId)
+                .orElseThrow(() -> new RuntimeException("Ride not found"));
+
+        if (ride.getStatus() != RideStatus.COMPLETED) {
+            throw new RuntimeException("Can only rate after ride is completed");
+        }
+
+        RideParticipant participant = participantRepository.findById(participantId)
+                .orElseThrow(() -> new RuntimeException("Participant not found"));
+        if (!participant.getRide().getId().equals(rideId)) {
+            throw new RuntimeException("Participant not part of this ride");
+        }
+        if (!participant.getRider().getId().equals(riderId)) {
+            throw new RuntimeException("Unauthorized");
+        }
+        if (participant.getStatus() != ParticipantStatus.APPROVED) {
+            throw new RuntimeException("Only approved riders can rate");
+        }
+
+        // ▸ Notification → DRIVER: RATING_RECEIVED
+        notificationService.createNotification(
+                ride.getDriver().getId(),
+                "DRIVER",
+                "RATING_RECEIVED",
+                "New Rating ⭐",
+                "You received a new rating from a rider.",
+                rideId
+        );
     }
 
     private boolean isDriverAuthorizedForRide(Ride ride, UUID authDriverId, String authDriverEmail) {

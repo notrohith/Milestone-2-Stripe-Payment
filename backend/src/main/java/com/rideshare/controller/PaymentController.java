@@ -31,15 +31,20 @@ public class PaymentController {
             long amountInPaise = ((Number) body.get("amount")).longValue() * 100; // Convert ₹ to paise
             String currency = (String) body.getOrDefault("currency", "inr");
 
-            PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
+            PaymentIntentCreateParams.Builder builder = PaymentIntentCreateParams.builder()
                     .setAmount(amountInPaise)
                     .setCurrency(currency)
                     .setAutomaticPaymentMethods(
                             PaymentIntentCreateParams.AutomaticPaymentMethods.builder()
                                     .setEnabled(true)
                                     .build()
-                    )
-                    .build();
+                    );
+                    
+            if (body.containsKey("email")) {
+                builder.setReceiptEmail((String) body.get("email"));
+            }
+            
+            PaymentIntentCreateParams params = builder.build();
 
             PaymentIntent paymentIntent = PaymentIntent.create(params);
 

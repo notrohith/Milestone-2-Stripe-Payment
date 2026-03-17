@@ -143,7 +143,7 @@ export default function SearchRides() {
     }, [rides, applyFiltersAndSort]);
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50">
+        <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50 dark:from-background dark:via-background dark:to-background">
             <CreateRideNavbar />
 
             <main className="pt-24 pb-16 px-4 sm:px-6 lg:px-8">

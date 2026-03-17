@@ -37,7 +37,7 @@ public class AdminController {
     }
 
     @PostMapping("/users/{id}/approve")
-    public ResponseEntity<User> approveUser(@PathVariable UUID id) {
+    public ResponseEntity<User> approveUser(@PathVariable("id") UUID id) {
         return userRepository.findById(id)
                 .map(user -> {
                     user.setStatus(UserStatus.APPROVED);
@@ -50,7 +50,7 @@ public class AdminController {
     }
     
     @PostMapping("/users/{id}/reject")
-    public ResponseEntity<User> rejectUser(@PathVariable UUID id) {
+    public ResponseEntity<User> rejectUser(@PathVariable("id") UUID id) {
         return userRepository.findById(id)
                 .map(user -> {
                     user.setStatus(UserStatus.REJECTED);

@@ -37,7 +37,7 @@ export const RiderDriverSection = () => {
                                         <p className="text-xs text-muted-foreground">Top Rated Driver</p>
                                     </div>
                                 </div>
-                                <p className="text-sm italic text-muted-foreground">"I paid off my car loan in just 6 months driving with Orbyt. The flexibility is unmatched."</p>
+                                <p className="text-sm italic text-muted-foreground">"I paid off my car loan in just 6 months driving with CoRide. The flexibility is unmatched."</p>
                             </div>
                         </div>
                     </motion.div>
@@ -114,8 +114,8 @@ export const RiderDriverSection = () => {
                         <div className="bg-card border border-border rounded-2xl p-8 shadow-xl">
                             <div className="aspect-video bg-muted rounded-lg mb-6 overflow-hidden">
                                 <img
-                                    src="https://images.unsplash.com/photo-1623916298284-9ce58a98bf3c?q=80&w=1000&auto=format&fit=crop"
-                                    alt="Rider"
+                                    src="https://www.shutterstock.com/image-photo/carpool-ride-sharing-people-using-600nw-2440815479.jpg"
+                                    alt="Carpool Ride Sharing"
                                     className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
                                 />
                             </div>

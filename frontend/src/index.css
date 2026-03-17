@@ -11,3 +11,59 @@
     @apply bg-background text-foreground font-sans;
   }
 }
+
+/* Universal Dark Mode Fixes for Hardcoded Tailwind Light Mode Classes */
+.dark .bg-white {
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground)) !important;
+  border-color: hsl(var(--border)) !important;
+}
+
+.dark .bg-gray-50, .dark .bg-gray-100 {
+  background-color: hsl(var(--muted)) !important;
+}
+
+.dark .text-gray-900, .dark .text-gray-800 {
+  color: hsl(var(--foreground)) !important;
+}
+
+.dark .text-gray-700, .dark .text-gray-600, .dark .text-gray-500 {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.dark .border-gray-100, .dark .border-gray-200, .dark .border-purple-100 {
+  border-color: hsl(var(--border)) !important;
+}
+
+/* Fix gradients on backgrounds */
+.dark .bg-gradient-to-br.from-purple-50.via-white.to-pink-50,
+.dark .bg-gradient-to-br.from-purple-50.to-pink-50 {
+  background: hsl(var(--background)) !important;
+}
+
+.dark .shadow-lg, .dark .shadow-xl {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Specific soft background adaptations for dashboards */
+.dark .bg-purple-50 { background-color: rgba(168, 85, 247, 0.1) !important; }
+.dark .bg-pink-50 { background-color: rgba(236, 72, 153, 0.1) !important; }
+.dark .bg-green-50, .dark .bg-emerald-50 { background-color: rgba(34, 197, 94, 0.1) !important; }
+.dark .bg-red-50, .dark .bg-rose-50 { background-color: rgba(244, 63, 94, 0.1) !important; }
+.dark .bg-blue-50, .dark .bg-sky-50 { background-color: rgba(56, 189, 248, 0.1) !important; }
+.dark .bg-yellow-50, .dark .bg-amber-50 { background-color: rgba(251, 191, 36, 0.1) !important; }
+
+/* Input field universal overrides */
+.dark input, .dark textarea, .dark select {
+  background-color: hsl(var(--muted)) !important;
+  color: hsl(var(--foreground)) !important;
+  border-color: hsl(var(--border)) !important;
+}
+
+.dark input::placeholder, .dark textarea::placeholder {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+/* Hover effects for LocationAutocomplete */
+.dark .hover\:bg-purple-50:hover { background-color: rgba(168, 85, 247, 0.2) !important; }
+.dark .hover\:bg-gray-50:hover { background-color: hsl(var(--muted)) !important; }

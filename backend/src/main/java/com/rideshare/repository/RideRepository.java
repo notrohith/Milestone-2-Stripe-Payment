@@ -14,9 +14,9 @@ public interface RideRepository extends JpaRepository<Ride, Long> {
     @Query("SELECT r FROM Ride r WHERE r.driver.email = :email")
     List<Ride> findByDriverEmail(@Param("email") String email);
 
-    @Query("SELECT r FROM Ride r WHERE LOWER(r.sourceCity) LIKE LOWER(CONCAT('%', :source, '%')) AND LOWER(r.destinationCity) LIKE LOWER(CONCAT('%', :dest, '%')) AND r.availableSeats > 0 AND r.status = 'CREATED'")
+    @Query("SELECT r FROM Ride r WHERE LOWER(r.sourceCity) LIKE LOWER(CONCAT('%', :source, '%')) AND LOWER(r.destinationCity) LIKE LOWER(CONCAT('%', :dest, '%')) AND r.availableSeats > 0 AND r.status = com.rideshare.model.RideStatus.CREATED")
     List<Ride> searchRides(@Param("source") String source, @Param("dest") String dest);
 
-    @Query("SELECT r FROM Ride r WHERE r.availableSeats > 0 AND r.status = 'CREATED' ORDER BY r.startTime ASC")
+    @Query("SELECT r FROM Ride r WHERE r.availableSeats > 0 AND r.status = com.rideshare.model.RideStatus.CREATED ORDER BY r.startTime ASC")
     List<Ride> findAllAvailable();
 }

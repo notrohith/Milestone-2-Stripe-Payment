@@ -3,5 +3,6 @@ package com.rideshare.model;
 public enum RideStatus {
     CREATED,
     STARTED,
-    COMPLETED
+    COMPLETED,
+    CANCELLED
 }

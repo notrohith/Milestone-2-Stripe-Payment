@@ -1,6 +1,32 @@
+# Secrets
 github_secrets/
 .env
 frontend/.env
+backend/.env
+
+# Dependencies
 node_modules/
 target/
+build/
+
+# Logs and temporary files
+*.log
+*.class
+hs_err_pid*
+tmp/
 logs/
+
+# Test and development artifacts
+backend/res.json
+backend/res2.json
+backend/test-*.js
+backend/TestFormatting.java
+frontend/test-*.js
+frontend/create_admin.mjs
+frontend/inspect_schema.mjs
+frontend/resolve_dns.js
+frontend/build_output.txt
+
+# OS files
+.DS_Store
+Thumbs.db

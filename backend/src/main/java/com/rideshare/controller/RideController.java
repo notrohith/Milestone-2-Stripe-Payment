@@ -11,6 +11,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
@@ -30,8 +31,8 @@ public class RideController {
 
     @GetMapping("/search")
     public ResponseEntity<List<RideDto>> searchRides(
-            @RequestParam(required = false, defaultValue = "") String source,
-            @RequestParam(required = false, defaultValue = "") String dest) {
+            @RequestParam(name = "source", required = false, defaultValue = "") String source,
+            @RequestParam(name = "dest", required = false, defaultValue = "") String dest) {
         return ResponseEntity.ok(
                 rideService.searchRides(source, dest)
                         .stream().map(RideDto::from).collect(Collectors.toList())
@@ -64,41 +65,65 @@ public class RideController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<RideDto> getRide(@PathVariable Long id) {
+    public ResponseEntity<RideDto> getRide(@PathVariable("id") Long id) {
         return ResponseEntity.ok(RideDto.from(rideService.getRide(id)));
     }
 
     @PostMapping("/{id}/join")
-    public ResponseEntity<Void> joinRide(@PathVariable Long id, @AuthenticationPrincipal User user) {
+    public ResponseEntity<Void> joinRide(@PathVariable("id") Long id, @AuthenticationPrincipal User user) {
         if (user == null) return ResponseEntity.status(401).build();
         rideService.joinRide(id, user.getId());
         return ResponseEntity.ok().build();
     }
 
     @PatchMapping("/{id}/status")
-    public ResponseEntity<RideDto> updateStatus(@PathVariable Long id, @RequestBody UpdateRideStatusRequest request, @AuthenticationPrincipal User user) {
+    public ResponseEntity<RideDto> updateStatus(@PathVariable("id") Long id, @RequestBody UpdateRideStatusRequest request, @AuthenticationPrincipal User user) {
         if (user == null) return ResponseEntity.status(401).build();
         return ResponseEntity.ok(RideDto.from(rideService.updateStatus(id, request.getStatus(), user.getId(), user.getEmail())));
     }
 
     @PostMapping("/{rideId}/participants/{participantId}/approve")
-    public ResponseEntity<Void> approveRider(@PathVariable Long rideId, @PathVariable Long participantId, @AuthenticationPrincipal User user) {
+    public ResponseEntity<Void> approveRider(@PathVariable("rideId") Long rideId, @PathVariable("participantId") Long participantId, @AuthenticationPrincipal User user) {
         if (user == null) return ResponseEntity.status(401).build();
         rideService.approveRider(rideId, participantId, user.getId(), user.getEmail());
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/{rideId}/participants/{participantId}/reject")
-    public ResponseEntity<Void> rejectRider(@PathVariable Long rideId, @PathVariable Long participantId, @AuthenticationPrincipal User user) {
+    public ResponseEntity<Void> rejectRider(@PathVariable("rideId") Long rideId, @PathVariable("participantId") Long participantId, @AuthenticationPrincipal User user) {
         if (user == null) return ResponseEntity.status(401).build();
         rideService.rejectRider(rideId, participantId, user.getId(), user.getEmail());
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/{rideId}/participants/{participantId}/confirm-payment")
-    public ResponseEntity<Void> confirmPayment(@PathVariable Long rideId, @PathVariable Long participantId, @AuthenticationPrincipal User user) {
+    public ResponseEntity<Void> confirmPayment(@PathVariable("rideId") Long rideId, @PathVariable("participantId") Long participantId, @AuthenticationPrincipal User user) {
         if (user == null) return ResponseEntity.status(401).build();
         rideService.confirmPayment(rideId, participantId, user.getId());
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * POST /api/rides/{rideId}/participants/{participantId}/cancel
+     * Rider cancels their own booking.
+     */
+    @PostMapping("/{rideId}/participants/{participantId}/cancel")
+    public ResponseEntity<Void> cancelBooking(@PathVariable("rideId") Long rideId, @PathVariable("participantId") Long participantId, @AuthenticationPrincipal User user) {
+        if (user == null) return ResponseEntity.status(401).build();
+        rideService.cancelBooking(rideId, participantId, user.getId());
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/{rideId}/participants/{participantId}/rate")
+    public ResponseEntity<Void> rateDriver(
+            @PathVariable("rideId") Long rideId,
+            @PathVariable("participantId") Long participantId,
+            @RequestBody Map<String, Object> body,
+            @AuthenticationPrincipal User user) {
+        if (user == null) return ResponseEntity.status(401).build();
+        int rating = ((Number) body.get("rating")).intValue();
+        String review = body.containsKey("review") ? (String) body.get("review") : "";
+        rideService.rateDriver(rideId, participantId, user.getId(), rating, review);
         return ResponseEntity.ok().build();
     }
 

@@ -25,6 +25,7 @@ import { ImageWithFallback } from '../../components/figma/ImageWithFallback';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api/axiosClient';
 import toast from 'react-hot-toast';
+import { geocodePlace } from '../../lib/geocoding';
 
 export default function CreateRidePage() {
     const { user } = useAuth();
@@ -55,8 +56,8 @@ export default function CreateRidePage() {
     const [destCoords, setDestCoords] = useState(null);
     const [routePolyline, setRoutePolyline] = useState([]);
     const [estimatedDistance, setEstimatedDistance] = useState(0);
-    const [pickupCoords, setPickupCoords] = useState([]);
-    const [dropCoords, setDropCoords] = useState([]);
+    const [pickupCoords, setPickupCoords] = useState(Array(4).fill(null));
+    const [dropCoords, setDropCoords] = useState(Array(4).fill(null));
 
     // Load vehicles for the current user via Backend API (bypasses Supabase REST CORS/525 errors)
     useEffect(() => {
@@ -74,30 +75,8 @@ export default function CreateRidePage() {
         fetchVehicles();
     }, [user]);
 
-    // Geocoding function using Nominatim with strict rate limiting (1 req/sec)
-    let lastGeocodeTime = 0;
-    const geocodeCity = async (cityName) => {
-        if (!cityName) return null;
-
-        // Enforce 1000ms delay between consecutive Nominatim requests
-        const now = Date.now();
-        const timeSinceLast = now - lastGeocodeTime;
-        if (timeSinceLast < 1000) {
-            await new Promise(resolve => setTimeout(resolve, 1000 - timeSinceLast));
-        }
-        lastGeocodeTime = Date.now();
-
-        try {
-            const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(cityName)}&format=json&limit=1&accept-language=en&email=contact@ridewithme.com`);
-            const data = await res.json();
-            if (data && data.length > 0) {
-                return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
-            }
-        } catch (err) {
-            console.error('Geocoding error:', err);
-        }
-        return null;
-    };
+    // Geocoding now uses the shared singleton service (serial queue + cache)
+    // No inline lastGeocodeTime — rate limiting is handled at the module level
 
     // Calculate Routing
     const calculateRoute = useCallback(async (start, end) => {
@@ -136,24 +115,24 @@ export default function CreateRidePage() {
             let sCoords = startCoords;
             let dCoords = destCoords;
 
-            if (sourceCity && sourceCity.length > 2) {
-                const coords = await geocodeCity(sourceCity);
+            if (sourceCity && sourceCity.length > 2 && !sCoords) {
+                const coords = await geocodePlace(sourceCity);
                 if (coords) {
                     sCoords = coords;
                     setStartCoords(coords);
                 }
-            } else {
+            } else if (!sourceCity || sourceCity.length <= 2) {
                 sCoords = null;
                 setStartCoords(null);
             }
 
-            if (destCity && destCity.length > 2) {
-                const coords = await geocodeCity(destCity);
+            if (destCity && destCity.length > 2 && !dCoords) {
+                const coords = await geocodePlace(destCity);
                 if (coords) {
                     dCoords = coords;
                     setDestCoords(coords);
                 }
-            } else {
+            } else if (!destCity || destCity.length <= 2) {
                 dCoords = null;
                 setDestCoords(null);
             }
@@ -164,28 +143,45 @@ export default function CreateRidePage() {
                 setRoutePolyline([]);
                 setEstimatedDistance(0);
             }
-        }, 1000); // 1 second debounce
+        }, 1500);
 
         return () => clearTimeout(timer);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [sourceCity, destCity, calculateRoute]);
+    }, [sourceCity, destCity, startCoords, destCoords, calculateRoute]);
 
-    // Geocode pickup/drop points as user types (debounced)
+    // Geocode pickup/drop points — sequential (not parallel) to respect rate limits
     useEffect(() => {
         const timer = setTimeout(async () => {
-            const pCoords = await Promise.all(
-                pickupPoints.map(p => p.trim().length > 2 ? geocodeCity(p) : Promise.resolve(null))
-            );
-            setPickupCoords(pCoords.filter(Boolean));
+            // Sequential geocoding through the shared queue for missing coords
+            const pCoords = [...pickupCoords];
+            let pChanged = false;
+            for (let i = 0; i < pickupPoints.length; i++) {
+                const p = pickupPoints[i];
+                if (!p || p.trim().length <= 2) {
+                    if (pCoords[i]) { pCoords[i] = null; pChanged = true; }
+                } else if (!pCoords[i]) {
+                    const c = await geocodePlace(p);
+                    if (c) { pCoords[i] = c; pChanged = true; }
+                }
+            }
+            if (pChanged) setPickupCoords(pCoords);
 
-            const dCoords = await Promise.all(
-                dropPoints.map(p => p.trim().length > 2 ? geocodeCity(p) : Promise.resolve(null))
-            );
-            setDropCoords(dCoords.filter(Boolean));
-        }, 1200);
+            const dCoords = [...dropCoords];
+            let dChanged = false;
+            for (let i = 0; i < dropPoints.length; i++) {
+                const p = dropPoints[i];
+                if (!p || p.trim().length <= 2) {
+                    if (dCoords[i]) { dCoords[i] = null; dChanged = true; }
+                } else if (!dCoords[i]) {
+                    const c = await geocodePlace(p);
+                    if (c) { dCoords[i] = c; dChanged = true; }
+                }
+            }
+            if (dChanged) setDropCoords(dCoords);
+        }, 2000); 
         return () => clearTimeout(timer);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [pickupPoints, dropPoints]);
+    }, [pickupPoints, dropPoints, pickupCoords, dropCoords]);
 
     const calculateEarnings = () => {
         const base = parseFloat(baseFare) || 0;
@@ -287,7 +283,14 @@ export default function CreateRidePage() {
                                             <LocationAutocomplete
                                                 id="start-city"
                                                 value={sourceCity}
-                                                onChange={setSourceCity}
+                                                onChange={(val, sug) => {
+                                                    setSourceCity(val);
+                                                    if (sug && sug.raw) {
+                                                        setStartCoords([parseFloat(sug.raw.lat), parseFloat(sug.raw.lon)]);
+                                                    } else {
+                                                        setStartCoords(null);
+                                                    }
+                                                }}
                                                 placeholder="e.g. Chennai"
                                                 className="border-purple-200 focus:border-purple-400"
                                             />
@@ -300,7 +303,14 @@ export default function CreateRidePage() {
                                             <LocationAutocomplete
                                                 id="dest-city"
                                                 value={destCity}
-                                                onChange={setDestCity}
+                                                onChange={(val, sug) => {
+                                                    setDestCity(val);
+                                                    if (sug && sug.raw) {
+                                                        setDestCoords([parseFloat(sug.raw.lat), parseFloat(sug.raw.lon)]);
+                                                    } else {
+                                                        setDestCoords(null);
+                                                    }
+                                                }}
                                                 placeholder="e.g. Pune"
                                                 className="border-purple-200 focus:border-purple-400"
                                             />
@@ -397,10 +407,18 @@ export default function CreateRidePage() {
                                                 <LocationAutocomplete
                                                     placeholder="e.g. Landmark, Street"
                                                     value={point}
-                                                    onChange={(val) => {
+                                                    onChange={(val, sug) => {
                                                         const newPoints = [...pickupPoints];
                                                         newPoints[index] = val;
                                                         setPickupPoints(newPoints);
+
+                                                        const newCoords = [...pickupCoords];
+                                                        if (sug && sug.raw) {
+                                                            newCoords[index] = [parseFloat(sug.raw.lat), parseFloat(sug.raw.lon)];
+                                                        } else {
+                                                            newCoords[index] = null;
+                                                        }
+                                                        setPickupCoords(newCoords);
                                                     }}
                                                     cityBias={sourceCity}
                                                     className="border-purple-200 focus:border-purple-400"
@@ -416,10 +434,18 @@ export default function CreateRidePage() {
                                                 <LocationAutocomplete
                                                     placeholder="e.g. Landmark, Street"
                                                     value={point}
-                                                    onChange={(val) => {
+                                                    onChange={(val, sug) => {
                                                         const newPoints = [...dropPoints];
                                                         newPoints[index] = val;
                                                         setDropPoints(newPoints);
+
+                                                        const newCoords = [...dropCoords];
+                                                        if (sug && sug.raw) {
+                                                            newCoords[index] = [parseFloat(sug.raw.lat), parseFloat(sug.raw.lon)];
+                                                        } else {
+                                                            newCoords[index] = null;
+                                                        }
+                                                        setDropCoords(newCoords);
                                                     }}
                                                     cityBias={destCity}
                                                     className="border-purple-200 focus:border-purple-400"
@@ -598,8 +624,8 @@ export default function CreateRidePage() {
                             <RideMap
                                 startCoords={startCoords}
                                 destCoords={destCoords}
-                                pickupCoords={pickupCoords}
-                                dropCoords={dropCoords}
+                                pickupCoords={pickupCoords.filter(Boolean)}
+                                dropCoords={dropCoords.filter(Boolean)}
                                 routePolyline={routePolyline}
                             />
                         </div>

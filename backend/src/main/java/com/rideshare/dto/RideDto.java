@@ -29,6 +29,7 @@ public class RideDto {
     private String genderPreference;
     private Double distanceKm;
     private String vehicleId;
+    private String vehicleName;
     private DriverDto driver;
     private List<ParticipantDto> participants;
 
@@ -82,6 +83,14 @@ public class RideDto {
             d.setEmail(ride.getDriver().getEmail());
             d.setProfilePhotoUrl(ride.getDriver().getProfilePhotoUrl());
             dto.setDriver(d);
+            
+            if (ride.getDriver().getVehicle() != null) {
+                String vName = ride.getDriver().getVehicle().getCompany() + " " + ride.getDriver().getVehicle().getModel();
+                if (ride.getDriver().getVehicle().getRegistrationNumber() != null) {
+                    vName += " (" + ride.getDriver().getVehicle().getRegistrationNumber() + ")";
+                }
+                dto.setVehicleName(vName);
+            }
         }
 
         if (ride.getParticipants() != null) {

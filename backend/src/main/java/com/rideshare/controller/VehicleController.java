@@ -17,7 +17,7 @@ public class VehicleController {
     }
 
     @GetMapping
-    public List<Vehicle> getVehicles(@RequestParam String email) {
+    public List<Vehicle> getVehicles(@RequestParam("email") String email) {
         return vehicleRepository.findByDriverEmail(email);
     }
 }

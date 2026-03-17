@@ -146,7 +146,7 @@ export default function RideDetail() {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50">
+            <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50 dark:from-background dark:via-background dark:to-background">
                 <CreateRideNavbar />
                 <div className="flex items-center justify-center pt-32">
                     <Loader2 className="w-10 h-10 animate-spin text-purple-500" />
@@ -157,7 +157,7 @@ export default function RideDetail() {
 
     if (!ride) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50">
+            <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50 dark:from-background dark:via-background dark:to-background">
                 <CreateRideNavbar />
                 <div className="flex flex-col items-center justify-center pt-32">
                     <Car className="w-16 h-16 text-gray-300 mb-4" />
@@ -171,7 +171,7 @@ export default function RideDetail() {
     const driverName = ride.driver?.name || ride.driver?.email || 'Driver';
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50">
+        <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50 dark:from-background dark:via-background dark:to-background">
             <CreateRideNavbar />
 
             <main className="pt-24 pb-16 px-4 sm:px-6 lg:px-8">
@@ -437,13 +437,15 @@ export default function RideDetail() {
                                         )}
                                     </div>
                                 </div>
-                            ) : ride.vehicleId ? (
-                                <div className="bg-white rounded-2xl shadow-lg p-6 border border-purple-100">
-                                    <h2 className="text-lg font-semibold mb-3 text-gray-900 flex items-center gap-2">
-                                        <Car className="w-5 h-5 text-purple-600" />
+                            ) : (ride.vehicleName || ride.vehicleId) ? (
+                                <div className="bg-white rounded-2xl shadow-lg p-6 border border-purple-100 dark:bg-gray-800 dark:border-gray-700">
+                                    <h2 className="text-lg font-semibold mb-3 text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                                        <Car className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                                         Vehicle
                                     </h2>
-                                    <p className="text-gray-700 font-medium capitalize">{ride.vehicleId.replace(/-/g, ' ')}</p>
+                                    <p className="text-gray-700 dark:text-gray-300 font-medium capitalize">
+                                        {ride.vehicleName ? ride.vehicleName : String(ride.vehicleId).replace(/-/g, ' ')}
+                                    </p>
                                 </div>
                             ) : null}
                         </div>
